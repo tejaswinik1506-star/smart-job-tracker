@@ -361,3 +361,4 @@ Your Name
 **⭐ If you found this project helpful, please give it a star!**
 
 Built with ❤️ using React, TypeScript, and Firebase
+"# smart-job-tracker" 
