@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidApplication() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['company', 'role', 'status', 'appliedDate', 'userId', 'createdAt', 'updatedAt'])
+        && data.company is string && data.company.size() > 0 && data.company.size() <= 200
+        && data.role is string && data.role.size() > 0 && data.role.size() <= 200
+        && data.status in ['Applied', 'Interview', 'Offer', 'Rejected']
+        && data.appliedDate is string
+        && data.userId is string
+        && data.createdAt is string
+        && data.updatedAt is string
+        && (data.notes == null || (data.notes is string && data.notes.size() <= 5000));
+    }
+    
+    // Applications collection rules
+    match /applications/{applicationId} {
+      // Allow read if user owns the application
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Allow create if authenticated and user is creating their own application
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidApplication();
+      
+      // Allow update if user owns the application and userId cannot be changed
+      allow update: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && isValidApplication();
+      
+      // Allow delete if user owns the application
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Users can read and write their own data
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
